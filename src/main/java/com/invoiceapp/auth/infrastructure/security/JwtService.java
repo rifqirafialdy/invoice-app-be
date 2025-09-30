@@ -1,0 +1,73 @@
+package com.invoiceapp.auth.infrastructure.security;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.security.oauth2.jwt.*;
+import org.springframework.stereotype.Service;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class JwtService {
+
+    @Qualifier("jwtEncoder")
+    private final JwtEncoder jwtEncoder;
+
+    @Qualifier("jwtDecoder")
+    private final JwtDecoder jwtDecoder;
+
+    @Qualifier("refreshTokenEncoder")
+    private final JwtEncoder refreshTokenEncoder;
+
+    @Qualifier("refreshTokenDecoder")
+    private final JwtDecoder refreshTokenDecoder;
+
+    public String generateAccessToken(UUID userId, String email) {
+        Instant now = Instant.now();
+
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .issuer("invoice-app")
+                .issuedAt(now)
+                .expiresAt(now.plus(15, ChronoUnit.MINUTES))
+                .subject(email)
+                .claim("userId", userId.toString())
+                .claim("email", email)
+                .build();
+
+        return jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+    }
+
+    public String generateRefreshToken(UUID userId, String email) {
+        Instant now = Instant.now();
+
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .issuer("invoice-app")
+                .issuedAt(now)
+                .expiresAt(now.plus(30, ChronoUnit.DAYS))
+                .subject(email)
+                .claim("userId", userId.toString())
+                .build();
+
+        return refreshTokenEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+    }
+
+    public Jwt validateAccessToken(String token) {
+        return jwtDecoder.decode(token);
+    }
+
+    public Jwt validateRefreshToken(String token) {
+        return refreshTokenDecoder.decode(token);
+    }
+
+    public String extractEmail(Jwt jwt) {
+        return jwt.getSubject();
+    }
+
+    public UUID extractUserId(Jwt jwt) {
+        String userIdStr = jwt.getClaim("userId");
+        return UUID.fromString(userIdStr);
+    }
+}

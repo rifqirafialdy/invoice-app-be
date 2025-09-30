@@ -1,6 +1,7 @@
 package com.invoiceapp.auth.application.implement;
 
 import com.invoiceapp.auth.application.service.AuthService;
+import com.invoiceapp.auth.application.service.EmailService;
 import com.invoiceapp.auth.application.service.TokenService;
 import com.invoiceapp.auth.domain.entity.User;
 import com.invoiceapp.auth.infrastructure.repositories.UserRepository;
@@ -23,6 +24,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final TokenService tokenService;
+    private final EmailService emailService;
 
     @Override
     public AuthResponse register(RegisterRequest request) {
@@ -40,6 +42,7 @@ public class AuthServiceImpl implements AuthService {
 
         user = userRepository.save(user);
         String verificationToken = tokenService.generateEmailVerificationToken(user.getId());
+        emailService.sendVerificationEmail(user.getEmail(), verificationToken);
 
 
         return AuthResponse.builder()
@@ -133,6 +136,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         String verificationToken = tokenService.generateEmailVerificationToken(user.getId());
+        emailService.sendVerificationEmail(user.getEmail(), verificationToken);
 
     }
 }

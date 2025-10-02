@@ -9,8 +9,10 @@ import com.invoiceapp.auth.infrastructure.security.JwtService;
 import com.invoiceapp.auth.presentation.dto.request.LoginRequest;
 import com.invoiceapp.auth.presentation.dto.request.RegisterRequest;
 import com.invoiceapp.auth.presentation.dto.response.AuthResponse;
+import com.invoiceapp.common.exception.BadRequestException;
+import com.invoiceapp.common.exception.ResourceNotFoundException;
+import com.invoiceapp.common.exception.UnauthorizedException;
 import lombok.RequiredArgsConstructor;
-import java.util.UUID;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,8 +31,9 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already registered");
+            throw new BadRequestException("Email already registered");
         }
+
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
@@ -40,27 +43,23 @@ public class AuthServiceImpl implements AuthService {
                 .isVerified(false)
                 .build();
 
-        user = userRepository.save(user);
-        String verificationToken = tokenService.generateEmailVerificationToken(user.getId());
-        emailService.sendVerificationEmail(user.getEmail(), verificationToken);
+        userRepository.save(user);
 
+        // Auto-login after registration
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setEmail(request.getEmail());
+        loginRequest.setPassword(request.getPassword());
 
-        return AuthResponse.builder()
-                .message("Registration successful. Please check your email to verify your account.")
-                .build();
+        return login(loginRequest);
     }
 
     @Override
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Invalid credentials"));
+                .orElseThrow(() -> new UnauthorizedException("Invalid credentials"));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Invalid credentials");
-        }
-
-        if (!user.getIsVerified()) {
-            throw new RuntimeException("Please verify your email first");
+            throw new UnauthorizedException("Invalid credentials");
         }
 
         String accessToken = jwtService.generateAccessToken(user.getId(), user.getEmail());
@@ -81,13 +80,15 @@ public class AuthServiceImpl implements AuthService {
                 .userId(user.getId())
                 .email(user.getEmail())
                 .name(user.getName())
+                .companyName(user.getCompanyName())
+                .isVerified(user.getIsVerified())
                 .build();
     }
 
     @Override
     public AuthResponse refreshToken(String refreshToken) {
         if (!tokenService.isRefreshTokenValid(refreshToken)) {
-            throw new RuntimeException("Invalid or expired refresh token");
+            throw new UnauthorizedException("Invalid or expired refresh token");
         }
 
         var jwt = jwtService.validateRefreshToken(refreshToken);
@@ -113,14 +114,18 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void verifyEmail(String token) {
-        UUID userId = tokenService.verifyEmailToken(token);
+        String email = tokenService.verifyEmailToken(token);
 
-        if (userId == null) {
-            throw new RuntimeException("Invalid or expired verification token");
+        if (email == null) {
+            throw new BadRequestException("Verification link has expired or is invalid");
         }
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (user.getIsVerified()) {
+            throw new BadRequestException("Email already verified");
+        }
 
         user.setIsVerified(true);
         userRepository.save(user);
@@ -129,14 +134,13 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void resendVerificationEmail(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         if (user.getIsVerified()) {
-            throw new RuntimeException("Email already verified");
+            throw new BadRequestException("Email already verified");
         }
 
-        String verificationToken = tokenService.generateEmailVerificationToken(user.getId());
-        emailService.sendVerificationEmail(user.getEmail(), verificationToken);
-
+        String verificationToken = tokenService.generateEmailVerificationToken(email);
+        emailService.sendVerificationEmail(email, verificationToken);
     }
 }

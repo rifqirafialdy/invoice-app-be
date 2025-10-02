@@ -1,8 +1,10 @@
 package com.invoiceapp.auth.application.implement;
 
 import com.invoiceapp.auth.application.service.TokenService;
+import com.invoiceapp.auth.infrastructure.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -13,28 +15,38 @@ import java.util.concurrent.TimeUnit;
 public class TokenServiceImpl implements TokenService {
 
     private final RedisTemplate<String, Object> redisTemplate;
+    private final JwtService jwtService;
+
 
     @Override
-    public String generateEmailVerificationToken(UUID userId) {
-        String token = UUID.randomUUID().toString();
-        String key = "email_verify:" + token;
+    public String generateEmailVerificationToken(String email) {
+        String token = jwtService.generateVerificationToken(email);
 
-        redisTemplate.opsForValue().set(key, userId.toString(), 24, TimeUnit.HOURS);
+        String key = "email_verify:" + token;
+        redisTemplate.opsForValue().set(key, email, 1, TimeUnit.HOURS);
 
         return token;
     }
 
     @Override
-    public UUID verifyEmailToken(String token) {
+    public String verifyEmailToken(String token) {
         String key = "email_verify:" + token;
-        String userIdStr = (String) redisTemplate.opsForValue().get(key);
 
-        if (userIdStr != null) {
-            redisTemplate.delete(key);
-            return UUID.fromString(userIdStr);
+        String email = (String) redisTemplate.opsForValue().get(key);
+
+        if (email == null) {
+            return null;
         }
 
-        return null;
+        try {
+            Jwt jwt = jwtService.validateVerificationToken(token);
+            String emailFromToken = jwt.getSubject();
+            redisTemplate.delete(key);
+
+            return emailFromToken;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @Override

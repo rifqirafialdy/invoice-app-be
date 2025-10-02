@@ -21,5 +21,7 @@ public class AuthResponse {
     private UUID userId;
     private String email;
     private String name;
+    private String companyName;
+    private Boolean isVerified;
     private String message;
 }

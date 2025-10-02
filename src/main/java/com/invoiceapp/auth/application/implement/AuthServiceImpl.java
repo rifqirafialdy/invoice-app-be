@@ -14,6 +14,8 @@ import com.invoiceapp.common.exception.ResourceNotFoundException;
 import com.invoiceapp.common.exception.UnauthorizedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,7 +47,6 @@ public class AuthServiceImpl implements AuthService {
 
         userRepository.save(user);
 
-        // Auto-login after registration
         LoginRequest loginRequest = new LoginRequest();
         loginRequest.setEmail(request.getEmail());
         loginRequest.setPassword(request.getPassword());
@@ -117,14 +118,28 @@ public class AuthServiceImpl implements AuthService {
         String email = tokenService.verifyEmailToken(token);
 
         if (email == null) {
-            throw new BadRequestException("Verification link has expired or is invalid");
+            try {
+                Jwt jwt = jwtService.validateVerificationToken(token);
+                String emailFromToken = jwt.getSubject();
+
+                User user = userRepository.findByEmail(emailFromToken)
+                        .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+                if (user.getIsVerified()) {
+                    throw new BadRequestException("Your account is already verified. You can login now.");
+                } else {
+                    throw new BadRequestException("This verification link has been used or a newer one was sent. Please check your email and use the latest verification link.");
+                }
+            } catch (JwtException e) {
+                throw new BadRequestException("Verification link has expired. Please login to request a new verification link.");
+            }
         }
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         if (user.getIsVerified()) {
-            throw new BadRequestException("Email already verified");
+            throw new BadRequestException("Your account is already verified. You can login now.");
         }
 
         user.setIsVerified(true);

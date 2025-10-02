@@ -7,6 +7,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -20,6 +21,18 @@ public class TokenServiceImpl implements TokenService {
 
     @Override
     public String generateEmailVerificationToken(String email) {
+        String pattern = "email_verify:*";
+        Set<String> keys = redisTemplate.keys(pattern);
+
+        if (keys != null && !keys.isEmpty()) {
+            for (String key : keys) {
+                String storedEmail = (String) redisTemplate.opsForValue().get(key);
+                if (email.equals(storedEmail)) {
+                    redisTemplate.delete(key);
+                }
+            }
+        }
+
         String token = jwtService.generateVerificationToken(email);
 
         String key = "email_verify:" + token;

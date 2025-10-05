@@ -9,6 +9,7 @@ import com.invoiceapp.invoice.application.service.InvoiceService;
 import com.invoiceapp.invoice.domain.entity.Invoice;
 import com.invoiceapp.invoice.domain.entity.InvoiceItem;
 import com.invoiceapp.invoice.infrastructure.repository.InvoiceRepository;
+import com.invoiceapp.invoice.infrastructure.util.InvoiceNumberGenerator;
 import com.invoiceapp.invoice.presentation.dto.request.InvoiceItemRequest;
 import com.invoiceapp.invoice.presentation.dto.request.InvoiceRequest;
 import com.invoiceapp.invoice.presentation.dto.response.InvoiceItemResponse;
@@ -36,6 +37,17 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final UserRepository userRepository;
     private final ClientRepository clientRepository;
     private final ProductRepository productRepository;
+    private final InvoiceNumberGenerator invoiceNumberGenerator;
+    private LocalDate calculateNextGenerationDate(LocalDate issueDate, String frequency) {
+        if (frequency == null) return null;
+
+        return switch (frequency) {
+            case "WEEKLY" -> issueDate.plusWeeks(1);
+            case "MONTHLY" -> issueDate.plusMonths(1);
+            case "YEARLY" -> issueDate.plusYears(1);
+            default -> issueDate.plusMonths(1);
+        };
+    }
 
     @Override
     public InvoiceResponse createInvoice(InvoiceRequest request, UUID userId) {
@@ -44,16 +56,24 @@ public class InvoiceServiceImpl implements InvoiceService {
 
         Client client = clientRepository.findByIdAndUserId(request.getClientId(), userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Client not found"));
+        String invoiceNumber = invoiceNumberGenerator.generateInvoiceNumber(userId);
 
         Invoice invoice = Invoice.builder()
                 .user(user)
                 .client(client)
-                .invoiceNumber(generateInvoiceNumber(userId))
+                .invoiceNumber(invoiceNumber)
                 .issueDate(request.getIssueDate())
                 .dueDate(request.getDueDate())
                 .status(request.getStatus())
                 .taxRate(request.getTaxRate())
                 .notes(request.getNotes())
+                .isRecurring(request.getIsRecurring())
+                .recurringFrequency(request.getRecurringFrequency())
+                .nextGenerationDate(
+                        request.getIsRecurring() ?
+                                calculateNextGenerationDate(request.getIssueDate(), request.getRecurringFrequency()) :
+                                null
+                )
                 .build();
 
         for (InvoiceItemRequest itemRequest : request.getItems()) {
@@ -133,34 +153,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .map(this::mapToResponse);
     }
 
-    private String generateInvoiceNumber(UUID userId) {
-        int year = Year.now().getValue();
-        Invoice lastInvoice = invoiceRepository.findTopByUserIdOrderByCreatedAtDesc(userId)
-                .orElse(null);
 
-        int sequence = 1;
-        if (lastInvoice != null) {
-            String lastNumber = lastInvoice.getInvoiceNumber();
-            String[] parts = lastNumber.split("-");
-            if (parts.length == 2 && parts[0].equals(String.valueOf(year))) {
-                sequence = Integer.parseInt(parts[1]) + 1;
-            }
-        }
-
-        return String.format("%d-%04d", year, sequence);
-    }
-
-    private String calculateDisplayStatus(Invoice invoice) {
-        if (invoice.getStatus().name().equals("SENT")) {
-            LocalDate today = LocalDate.now();
-            if (invoice.getDueDate().isEqual(today)) {
-                return "DUE";
-            } else if (invoice.getDueDate().isBefore(today)) {
-                return "OVERDUE";
-            }
-        }
-        return invoice.getStatus().name();
-    }
 
     private InvoiceResponse mapToResponse(Invoice invoice) {
         List<InvoiceItemResponse> itemResponses = invoice.getItems().stream()
@@ -182,7 +175,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .issueDate(invoice.getIssueDate())
                 .dueDate(invoice.getDueDate())
                 .status(invoice.getStatus())
-                .displayStatus(calculateDisplayStatus(invoice))
+                .displayStatus(invoice.getStatus().name())
                 .items(itemResponses)
                 .subtotal(invoice.getSubtotal())
                 .taxRate(invoice.getTaxRate())

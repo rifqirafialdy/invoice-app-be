@@ -25,6 +25,9 @@ public class InvoiceRequest {
     @NotNull(message = "Status is required")
     private InvoiceStatus status;
 
+    private Boolean isRecurring;
+    private String recurringFrequency;
+
     @NotNull(message = "Items are required")
     @Size(min = 1, message = "At least one item is required")
     @Valid

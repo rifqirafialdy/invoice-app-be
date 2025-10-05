@@ -20,13 +20,16 @@ public class InvoiceResponse {
     private LocalDate issueDate;
     private LocalDate dueDate;
     private InvoiceStatus status;
-    private String displayStatus; // Calculated status
+    private String displayStatus;// Calculated status
     private List<InvoiceItemResponse> items;
     private BigDecimal subtotal;
     private BigDecimal taxRate;
     private BigDecimal taxAmount;
     private BigDecimal total;
     private String notes;
+    private Boolean isRecurring;
+    private String recurringFrequency;
+    private LocalDate nextGenerationDate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

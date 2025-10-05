@@ -82,6 +82,15 @@ public class Invoice {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "is_recurring")
+    private Boolean isRecurring = false;
+
+    @Column(name = "recurring_frequency")
+    private String recurringFrequency; // WEEKLY, MONTHLY, YEARLY
+
+    @Column(name = "next_generation_date")
+    private LocalDate nextGenerationDate;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

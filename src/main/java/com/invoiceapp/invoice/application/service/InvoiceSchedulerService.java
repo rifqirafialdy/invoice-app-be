@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
@@ -51,76 +52,73 @@ public class InvoiceSchedulerService {
     }
 
 
-        @Scheduled(cron = "0 * * * * ?")
-        @Transactional
-        public void generateRecurringInvoices() {
-            log.info("Starting recurring invoice generation...");
+    @Scheduled(cron = "0 * * * * ?")
+    @Transactional
+    public void generateRecurringInvoices() {
+        LocalDate today = LocalDate.now();
 
-            LocalDate today = LocalDate.now();
-            List<Invoice> recurringInvoices = invoiceRepository
-                    .findByIsRecurringTrueAndNextGenerationDate(today);
+        List<Invoice> invoicesToGenerate = invoiceRepository
+                .findByIsRecurringTrueAndNextGenerationDateLessThanEqual(today);
 
-            int generatedCount = 0;
+        int generated = 0;
 
-            for (Invoice originalInvoice : recurringInvoices) {
-                String newInvoiceNumber = invoiceNumberGenerator.generateInvoiceNumber(
-                        originalInvoice.getUser().getId()
-                );
-                Invoice newInvoice = Invoice.builder()
-                        .user(originalInvoice.getUser())
-                        .client(originalInvoice.getClient())
-                        .invoiceNumber(newInvoiceNumber)
-                        .issueDate(today)
-                        .dueDate(calculateDueDate(today, originalInvoice.getRecurringFrequency()))
-                        .status(InvoiceStatus.DRAFT)
-                        .taxRate(originalInvoice.getTaxRate())
-                        .notes(originalInvoice.getNotes())
-                        .isRecurring(false)
-                        .build();
-                for (InvoiceItem item : originalInvoice.getItems()) {
-                    InvoiceItem newItem = InvoiceItem.builder()
-                            .product(item.getProduct())
-                            .quantity(item.getQuantity())
-                            .unitPrice(item.getUnitPrice())
-                            .build();
-                    newInvoice.addItem(newItem);
-                }
+        for (Invoice template : invoicesToGenerate) {
+            try {
+                LocalDate scheduledDate = template.getNextGenerationDate();
+                Invoice newInvoice = createRecurringInvoice(template, scheduledDate);
 
-                newInvoice.getItems().forEach(item -> {
-                    if (item.getTotal() == null) {
-                        item.setTotal(item.getUnitPrice().multiply(new BigDecimal(item.getQuantity())));
-                    }
-                });
-
-                newInvoice.calculateTotals();
                 invoiceRepository.save(newInvoice);
 
-                originalInvoice.setNextGenerationDate(
-                        calculateNextGenerationDate(today, originalInvoice.getRecurringFrequency())
-                );
+                LocalDate nextDate = calculateNextDate(scheduledDate, template.getRecurringFrequency());
+                template.setNextGenerationDate(nextDate);
+                invoiceRepository.save(template);
 
-                generatedCount++;
+                generated++;
+                log.info("Generated recurring invoice {} from template {} (scheduled: {})",
+                        newInvoice.getInvoiceNumber(),
+                        template.getInvoiceNumber(),
+                        scheduledDate);
+            } catch (Exception e) {
+                log.error("Failed to generate recurring invoice from {}: {}",
+                        template.getInvoiceNumber(), e.getMessage());
             }
-
-            log.info("Recurring invoice generation completed. Generated: {}", generatedCount);
         }
 
-    private LocalDate calculateDueDate(LocalDate issueDate, String frequency) {
-        return switch (frequency) {
-            case "WEEKLY" -> issueDate.plusWeeks(1);
-            case "MONTHLY" -> issueDate.plusMonths(1);
-            case "YEARLY" -> issueDate.plusYears(1);
-            default -> issueDate.plusMonths(1);
-        };
+        log.info("Recurring invoice generation completed. Generated: {}", generated);
     }
 
-    private LocalDate calculateNextGenerationDate(LocalDate current, String frequency) {
-        return switch (frequency) {
-            case "WEEKLY" -> current.plusWeeks(1);
-            case "MONTHLY" -> current.plusMonths(1);
-            case "YEARLY" -> current.plusYears(1);
-            default -> current.plusMonths(1);
-        };
+    private Invoice createRecurringInvoice(Invoice template, LocalDate scheduledIssueDate) {
+        Invoice newInvoice = new Invoice();
+        newInvoice.setUser(template.getUser());
+        newInvoice.setClient(template.getClient());
+
+        newInvoice.setIssueDate(scheduledIssueDate);
+
+        LocalDate dueDate = scheduledIssueDate.plusDays(
+                ChronoUnit.DAYS.between(template.getIssueDate(), template.getDueDate())
+        );
+        newInvoice.setDueDate(dueDate);
+
+        newInvoice.setIsRecurring(false);
+        newInvoice.setStatus(InvoiceStatus.SENT);
+        newInvoice.setSubtotal(template.getSubtotal());
+        newInvoice.setTaxRate(template.getTaxRate());
+        newInvoice.setTaxAmount(template.getTaxAmount());
+        newInvoice.setTotal(template.getTotal());
+        newInvoice.setNotes(template.getNotes());
+
+        newInvoice.setInvoiceNumber(invoiceNumberGenerator.generateInvoiceNumber(template.getUser().getId()));
+
+        return newInvoice;
     }
 
+    private LocalDate calculateNextDate(LocalDate from, String frequency) {
+        return switch (frequency.toUpperCase()) {
+            case "DAILY" -> from.plusDays(1);
+            case "WEEKLY" -> from.plusWeeks(1);
+            case "MONTHLY" -> from.plusMonths(1);
+            case "YEARLY" -> from.plusYears(1);
+            default -> from.plusMonths(1);
+        };
+    }
 }

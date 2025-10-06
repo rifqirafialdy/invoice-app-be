@@ -5,9 +5,11 @@ import com.invoiceapp.auth.infrastructure.repositories.UserRepository;
 import com.invoiceapp.client.domain.entity.Client;
 import com.invoiceapp.client.infrastructure.repository.ClientRepository;
 import com.invoiceapp.common.exception.ResourceNotFoundException;
+import com.invoiceapp.common.specification.BaseSpecification;
 import com.invoiceapp.invoice.application.service.InvoiceService;
 import com.invoiceapp.invoice.domain.entity.Invoice;
 import com.invoiceapp.invoice.domain.entity.InvoiceItem;
+import com.invoiceapp.invoice.domain.enums.InvoiceStatus;
 import com.invoiceapp.invoice.infrastructure.repository.InvoiceRepository;
 import com.invoiceapp.invoice.infrastructure.util.InvoiceNumberGenerator;
 import com.invoiceapp.invoice.presentation.dto.request.InvoiceItemRequest;
@@ -18,7 +20,10 @@ import com.invoiceapp.product.domain.entity.Product;
 import com.invoiceapp.product.infrastructure.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -67,10 +72,10 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .status(request.getStatus())
                 .taxRate(request.getTaxRate())
                 .notes(request.getNotes())
-                .isRecurring(request.getIsRecurring())
+                .isRecurring(Boolean.TRUE.equals(request.getIsRecurring()))
                 .recurringFrequency(request.getRecurringFrequency())
                 .nextGenerationDate(
-                        request.getIsRecurring() ?
+                        Boolean.TRUE.equals(request.getIsRecurring()) ?
                                 calculateNextGenerationDate(request.getIssueDate(), request.getRecurringFrequency()) :
                                 null
                 )
@@ -147,10 +152,20 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public Page<InvoiceResponse> getAllInvoices(UUID userId, Pageable pageable) {
-        return invoiceRepository.findByUserId(userId, pageable)
-                .map(this::mapToResponse);
+    public Page<InvoiceResponse> getAllInvoices(UUID userId, int page, int size, String sortBy, String sortDir,
+                                                String search, InvoiceStatus status, LocalDate startDate, LocalDate endDate) {
+        Sort sort = sortDir.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Specification<Invoice> spec = Specification.allOf(
+                BaseSpecification.<Invoice>withUserId(userId, "user"),
+                BaseSpecification.<Invoice>withSearch(search, "invoiceNumber"),
+                BaseSpecification.<Invoice, InvoiceStatus>withEquals("status", status),
+                BaseSpecification.<Invoice, LocalDate>withDateRange("issueDate", startDate, endDate)
+        );
+
+        Page<Invoice> invoices = invoiceRepository.findAll(spec, pageable);
+        return invoices.map(this::mapToResponse);
     }
 
 

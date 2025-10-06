@@ -3,6 +3,7 @@ package com.invoiceapp.invoice.presentation.dto.request;
 import com.invoiceapp.invoice.domain.enums.InvoiceStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
+import lombok.Builder;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -25,7 +26,7 @@ public class InvoiceRequest {
     @NotNull(message = "Status is required")
     private InvoiceStatus status;
 
-    private Boolean isRecurring;
+    private Boolean isRecurring = false;
     private String recurringFrequency;
 
     @NotNull(message = "Items are required")

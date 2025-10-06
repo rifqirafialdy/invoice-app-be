@@ -17,8 +17,9 @@ public class InvoiceNumberGenerator {
     public String generateInvoiceNumber(UUID userId) {
         int currentYear = LocalDate.now().getYear();
 
+        // This now includes deleted invoices
         Invoice lastInvoice = invoiceRepository
-                .findTopByUserIdOrderByCreatedAtDesc(userId)
+                .findTopByUserIdIncludingDeletedOrderByCreatedAtDesc(userId)
                 .orElse(null);
 
         int nextSequence = 1;

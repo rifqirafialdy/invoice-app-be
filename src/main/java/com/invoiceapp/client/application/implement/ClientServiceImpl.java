@@ -8,9 +8,13 @@ import com.invoiceapp.client.infrastructure.repository.ClientRepository;
 import com.invoiceapp.client.presentation.dto.request.ClientRequest;
 import com.invoiceapp.client.presentation.dto.response.ClientResponse;
 import com.invoiceapp.common.exception.ResourceNotFoundException;
+import com.invoiceapp.common.specification.BaseSpecification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -74,10 +78,17 @@ public class ClientServiceImpl implements ClientService {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public Page<ClientResponse> getAllClients(UUID userId, Pageable pageable) {
-        return clientRepository.findByUserId(userId, pageable)
-                .map(this::mapToResponse);
+    public Page<ClientResponse> getAllClients(UUID userId, int page, int size, String sortBy, String sortDir, String search) {
+        Sort sort = sortDir.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Specification<Client> spec = Specification.allOf(
+                BaseSpecification.<Client>withUserId(userId, "user"),
+                BaseSpecification.<Client>withSearch(search, "name", "email", "phone")
+        );
+
+        Page<Client> clients = clientRepository.findAll(spec, pageable);
+        return clients.map(this::mapToResponse);
     }
 
     private ClientResponse mapToResponse(Client client) {

@@ -12,5 +12,4 @@ public interface ClientService {
     ClientResponse updateClient(UUID clientId, ClientRequest request, UUID userId);
     void deleteClient(UUID clientId, UUID userId);
     ClientResponse getClientById(UUID clientId, UUID userId);
-    Page<ClientResponse> getAllClients(UUID userId, Pageable pageable);
-}
+    Page<ClientResponse> getAllClients(UUID userId, int page, int size, String sortBy, String sortDir, String search);}

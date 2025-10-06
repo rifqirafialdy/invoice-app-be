@@ -68,15 +68,10 @@ public class ClientController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir
-    ) {
-        Sort sort = sortDir.equalsIgnoreCase("asc")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
+            @RequestParam(defaultValue = "desc") String sortDir,
+            @RequestParam(required = false) String search) {
 
-        Pageable pageable = PageRequest.of(page, size, sort);
-        Page<ClientResponse> response = clientService.getAllClients(userId, pageable);
-
-        return ResponseEntity.ok(ApiResponse.success("Clients retrieved successfully", response));
+        Page<ClientResponse> clients = clientService.getAllClients(userId, page, size, sortBy, sortDir, search);
+        return ResponseEntity.ok(ApiResponse.success(clients));
     }
 }

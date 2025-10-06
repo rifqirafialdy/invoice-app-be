@@ -2,6 +2,7 @@ package com.invoiceapp.product.presentation.controller;
 
 import com.invoiceapp.common.dto.ApiResponse;
 import com.invoiceapp.product.application.service.ProductService;
+import com.invoiceapp.product.domain.enums.ProductType;
 import com.invoiceapp.product.presentation.dto.request.ProductRequest;
 import com.invoiceapp.product.presentation.dto.response.ProductResponse;
 import jakarta.validation.Valid;
@@ -67,15 +68,11 @@ public class ProductController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir
-    ) {
-        Sort sort = sortDir.equalsIgnoreCase("asc")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
+            @RequestParam(defaultValue = "desc") String sortDir,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) ProductType type) {  // Add type filter
 
-        Pageable pageable = PageRequest.of(page, size, sort);
-        Page<ProductResponse> response = productService.getAllProducts(userId, pageable);
-
-        return ResponseEntity.ok(ApiResponse.success("Products retrieved successfully", response));
+        Page<ProductResponse> products = productService.getAllProducts(userId, page, size, sortBy, sortDir, search, type);
+        return ResponseEntity.ok(ApiResponse.success(products));
     }
 }

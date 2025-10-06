@@ -22,7 +22,7 @@ import java.util.List;
 public class InvoiceSchedulerService {
 
     private final InvoiceRepository invoiceRepository;
-    private final InvoiceNumberGenerator invoiceNumberGenerator;  // Add this
+    private final InvoiceNumberGenerator invoiceNumberGenerator;
 
     @Scheduled(cron = "0 * * * * ?")
     @Transactional

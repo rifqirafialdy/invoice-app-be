@@ -1,6 +1,7 @@
 package com.invoiceapp.product.presentation.controller;
 
 import com.invoiceapp.common.dto.ApiResponse;
+import com.invoiceapp.common.dto.PageDTO;
 import com.invoiceapp.product.application.service.ProductService;
 import com.invoiceapp.product.domain.enums.ProductType;
 import com.invoiceapp.product.presentation.dto.request.ProductRequest;
@@ -8,6 +9,7 @@ import com.invoiceapp.product.presentation.dto.response.ProductResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -70,9 +72,15 @@ public class ProductController {
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir,
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) ProductType type) {  // Add type filter
+            @RequestParam(required = false) ProductType type) {
 
-        Page<ProductResponse> products = productService.getAllProducts(userId, page, size, sortBy, sortDir, search, type);
-        return ResponseEntity.ok(ApiResponse.success(products));
+        PageDTO<ProductResponse> productDto = productService.getAllProducts(userId, page, size, sortBy, sortDir, search, type);
+
+        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<ProductResponse> productsPage = new PageImpl<>(productDto.getContent(), pageable, productDto.getTotalElements());
+
+        return ResponseEntity.ok(ApiResponse.success("Products retrieved successfully", productsPage));
     }
 }

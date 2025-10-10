@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Changed</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+<div style="background: linear-gradient(to right, #4F46E5, #7C3AED); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+    <h1 style="color: white; margin: 0;">Email Address Changed</h1>
+</div>
+
+<div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+    <p style="font-size: 16px;">Hello,</p>
+
+    <p style="font-size: 16px;">This is a confirmation that your email address has been successfully changed.</p>
+
+    <div style="background-color: white; padding: 20px; border-left: 4px solid #4F46E5; margin: 20px 0;">
+        <p style="margin: 0; font-size: 14px; color: #666;">
+            <strong>New Email:</strong> <span th:text="${newEmail}" style="color: #4F46E5;"></span>
+        </p>
+    </div>
+
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+        <p style="font-size: 14px; color: #666;">
+            <strong>Security Notice:</strong> If you did not make this change, please contact our support team immediately.
+        </p>
+    </div>
+
+    <p style="margin-top: 30px; font-size: 14px; color: #666;">
+        Best regards,<br>
+        Invoice Management Team
+    </p>
+</div>
+
+<div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
+    <p>This is an automated message, please do not reply to this email.</p>
+</div>
+</body>
+</html>

@@ -108,32 +108,20 @@ public class AuthController {
                     .body(ApiResponse.error("Unauthorized"));
         }
     }
-
-    @GetMapping("/me")
-    public ResponseEntity<AuthResponse> getCurrentUser(HttpServletRequest request) {
-        String accessToken = requestUtil.extractAccessTokenFromCookies(request);
-
-        if (accessToken == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
-        try {
-            var jwt = jwtService.validateAccessToken(accessToken);
-            String email = jwtService.extractEmail(jwt);
-            UUID userId = jwtService.extractUserId(jwt);
-
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-
-            return ResponseEntity.ok(AuthResponse.builder()
-                    .userId(user.getId())
-                    .email(user.getEmail())
-                    .name(user.getName())
-                    .companyName(user.getCompanyName())
-                    .isVerified(user.getIsVerified())
-                    .build());
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+        return ResponseEntity.ok(ApiResponse.success("Password reset email sent"));
     }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(ApiResponse.success("Password reset successfully"));
+    }
+
+
+
+
+
 }

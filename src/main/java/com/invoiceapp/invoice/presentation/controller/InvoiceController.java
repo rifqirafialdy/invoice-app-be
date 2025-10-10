@@ -1,6 +1,7 @@
 package com.invoiceapp.invoice.presentation.controller;
 
 import com.invoiceapp.common.dto.ApiResponse;
+import com.invoiceapp.common.dto.PageDTO;
 import com.invoiceapp.invoice.application.service.InvoiceService;
 import com.invoiceapp.invoice.domain.enums.InvoiceStatus;
 import com.invoiceapp.invoice.presentation.dto.request.InvoiceRequest;
@@ -8,6 +9,7 @@ import com.invoiceapp.invoice.presentation.dto.response.InvoiceResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -74,11 +76,19 @@ public class InvoiceController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) InvoiceStatus status,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) Boolean isRecurring) {
 
-        Page<InvoiceResponse> invoices = invoiceService.getAllInvoices(
-                userId, page, size, sortBy, sortDir, search, status, startDate, endDate
+        PageDTO<InvoiceResponse> invoiceDto = invoiceService.getAllInvoices(
+                userId, page, size, sortBy, sortDir, search, status, startDate, endDate,
+                isRecurring
         );
-        return ResponseEntity.ok(ApiResponse.success(invoices));
+
+        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<InvoiceResponse> invoicesPage = new PageImpl<>(invoiceDto.getContent(), pageable, invoiceDto.getTotalElements());
+
+        return ResponseEntity.ok(ApiResponse.success("Invoices retrieved successfully", invoicesPage));
     }
 }

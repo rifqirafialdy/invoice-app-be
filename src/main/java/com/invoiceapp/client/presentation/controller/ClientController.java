@@ -4,13 +4,11 @@ import com.invoiceapp.client.application.service.ClientService;
 import com.invoiceapp.client.presentation.dto.request.ClientRequest;
 import com.invoiceapp.client.presentation.dto.response.ClientResponse;
 import com.invoiceapp.common.dto.ApiResponse;
+import com.invoiceapp.common.dto.PageDTO;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -71,7 +69,14 @@ public class ClientController {
             @RequestParam(defaultValue = "desc") String sortDir,
             @RequestParam(required = false) String search) {
 
-        Page<ClientResponse> clients = clientService.getAllClients(userId, page, size, sortBy, sortDir, search);
-        return ResponseEntity.ok(ApiResponse.success(clients));
+        PageDTO<ClientResponse> clientDto = clientService.getAllClients(userId, page, size, sortBy, sortDir, search);
+
+        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<ClientResponse> clientsPage = new PageImpl<>(clientDto.getContent(), pageable, clientDto.getTotalElements());
+
+        return ResponseEntity.ok(ApiResponse.success("Clients retrieved successfully", clientsPage));
     }
+
 }

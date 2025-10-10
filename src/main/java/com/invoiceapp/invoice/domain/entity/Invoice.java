@@ -3,6 +3,7 @@ package com.invoiceapp.invoice.domain.entity;
 import com.invoiceapp.auth.domain.entity.User;
 import com.invoiceapp.client.domain.entity.Client;
 import com.invoiceapp.invoice.domain.enums.InvoiceStatus;
+import com.invoiceapp.invoice.domain.enums.RecurringFrequency;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -85,11 +86,16 @@ public class Invoice {
     @Column(name = "is_recurring")
     private Boolean isRecurring = false;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "recurring_frequency")
-    private String recurringFrequency; // WEEKLY, MONTHLY, YEARLY
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    private RecurringFrequency recurringFrequency;
 
     @Column(name = "next_generation_date")
     private LocalDate nextGenerationDate;
+
+    @Column(name = "recurring_series_id")
+    private UUID recurringSeriesId;
 
     @PrePersist
     protected void onCreate() {

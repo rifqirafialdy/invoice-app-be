@@ -30,8 +30,6 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID>, JpaSpec
 
     List<Invoice> findByIsRecurringTrueAndNextGenerationDate(LocalDate date);
 
-    @Query(value = "SELECT * FROM invoices WHERE user_id = :userId ORDER BY created_at DESC LIMIT 1", nativeQuery = true)
-    Optional<Invoice> findTopByUserIdIncludingDeletedOrderByCreatedAtDesc(@Param("userId") UUID userId);
 
     List<Invoice> findByIsRecurringTrueAndNextGenerationDateLessThanEqual(LocalDate date);
 

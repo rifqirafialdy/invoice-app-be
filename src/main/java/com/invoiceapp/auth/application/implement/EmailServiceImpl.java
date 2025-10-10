@@ -84,28 +84,181 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
-    public void sendInvoiceEmail(String to, String invoiceUrl, String invoiceNumber) {
+    public void sendInvoiceEmailWithActions(String to, String clientName, String invoiceNumber, String totalAmount, String dueDate, String invoiceViewLink, String paymentLink, String cancelLink) {
         try {
             Context context = new Context();
-            context.setVariable("invoiceUrl", invoiceUrl);
+            context.setVariable("clientName", clientName);
             context.setVariable("invoiceNumber", invoiceNumber);
+            context.setVariable("totalAmount", totalAmount);
+            context.setVariable("dueDate", dueDate);
+            context.setVariable("invoiceViewLink", invoiceViewLink);
+            context.setVariable("paymentLink", paymentLink);
+            context.setVariable("cancelLink", cancelLink);
 
-            String htmlContent = templateEngine.process("invoice-email.html", context);
+            String htmlContent = templateEngine.process("invoice-with-actions", context); // Menggunakan template baru
 
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setFrom(fromEmail);
             helper.setTo(to);
-            helper.setSubject("Invoice #" + invoiceNumber + " - Invoice Management");
+            helper.setSubject("INVOICE DUE #" + invoiceNumber + " - Action Required");
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
-            log.info("Invoice email sent to: {}", to);
+            log.info("Invoice with actions email sent to: {}", to);
 
         } catch (MessagingException e) {
-            log.error("Failed to send invoice email to: {}", to, e);
+            log.error("Failed to send invoice email with actions to: {}", to, e);
             throw new RuntimeException("Failed to send email");
         }
     }
+
+    @Override
+    public void sendInvoiceCancellationNotification(String userEmail, String clientName, String invoiceNumber) {
+        try {
+            String subject = "[ACTION REQUIRED] Cancellation Request for Invoice #" + invoiceNumber;
+            String body = String.format("Client %s has requested a cancellation for Invoice #%s. " +
+                            "Please log in to the application to review and confirm the status change.",
+                    clientName, invoiceNumber);
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(userEmail); // Mengirim ke pemilik bisnis
+            helper.setSubject(subject);
+            helper.setText(body, false);
+
+            mailSender.send(message);
+            log.info("Cancellation notification sent to user: {}", userEmail);
+        } catch (MessagingException e) {
+            log.error("Failed to send cancellation notification email to: {}", userEmail, e);
+            throw new RuntimeException("Failed to send notification email");
+        }
+    }
+    @Override
+    public void sendPaymentConfirmationNotification(String userEmail, String clientName, String invoiceNumber) {
+        try {
+            String subject = "[ACTION REQUIRED] Payment Confirmation for Invoice #" + invoiceNumber;
+            String body = String.format("Client %s has confirmed payment for Invoice #%s. " +
+                            "Please verify your bank statement and manually update the invoice status to PAID.",
+                    clientName, invoiceNumber);
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(userEmail);
+            helper.setSubject(subject);
+            helper.setText(body, false);
+
+            mailSender.send(message);
+            log.info("Payment confirmation notification sent to user: {}", userEmail);
+        } catch (MessagingException e) {
+            log.error("Failed to send payment confirmation notification email to: {}", userEmail, e);
+            throw new RuntimeException("Failed to send notification email");
+        }
+    }
+    @Override
+    public void sendPaymentConfirmationEmail(String to, String clientName, String invoiceNumber,
+                                             String totalAmount, String invoiceViewLink) {
+        try {
+            Context context = new Context();
+            context.setVariable("clientName", clientName);
+            context.setVariable("invoiceNumber", invoiceNumber);
+            context.setVariable("totalAmount", totalAmount);
+            context.setVariable("invoiceViewLink", invoiceViewLink);
+
+            String htmlContent = templateEngine.process("payment-confirmation", context);
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(to);
+            helper.setSubject("Payment Confirmed - Invoice #" + invoiceNumber);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.info("Payment confirmation email sent to: {}", to);
+
+        } catch (MessagingException e) {
+            log.error("Failed to send payment confirmation email to: {}", to, e);
+            throw new RuntimeException("Failed to send email");
+        }
+    }
+    @Override
+    public void sendSimpleEmail(String to, String subject, String message) {
+        try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(message, false);
+
+            mailSender.send(mimeMessage);
+            log.info("Simple email sent to: {}", to);
+
+        } catch (MessagingException e) {
+            log.error("Failed to send simple email to: {}", to, e);
+            throw new RuntimeException("Failed to send email");
+        }
+    }
+    @Override
+    public void sendEmailChangeVerification(String to, String token) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(to);
+            helper.setSubject("Verify Your New Email Address - Invoice Management");
+
+            String verifyUrl = frontendUrl + "/verify-email-change?token=" + token;
+
+            Context context = new Context();
+            context.setVariable("verifyUrl", verifyUrl);
+
+            String htmlContent = templateEngine.process("email-change-verification", context);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.info("Email change verification sent to: {}", to);
+
+        } catch (MessagingException e) {
+            log.error("Failed to send email change verification to: {}", to, e);
+            throw new RuntimeException("Failed to send email change verification");
+        }
+    }
+
+    @Override
+    public void sendEmailChangeNotification(String oldEmail, String newEmail) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(oldEmail);
+            helper.setSubject("Your Email Has Been Changed - Invoice Management");
+
+            Context context = new Context();
+            context.setVariable("newEmail", newEmail);
+
+            String htmlContent = templateEngine.process("email-change-notification", context);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.info("Email change notification sent to old email: {}", oldEmail);
+
+        } catch (MessagingException e) {
+            log.error("Failed to send email change notification to: {}", oldEmail, e);
+            throw new RuntimeException("Failed to send email change notification");
+        }
+    }
+
+
+
 }

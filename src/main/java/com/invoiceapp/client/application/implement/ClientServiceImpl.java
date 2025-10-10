@@ -2,14 +2,19 @@ package com.invoiceapp.client.application.implement;
 
 import com.invoiceapp.auth.domain.entity.User;
 import com.invoiceapp.auth.infrastructure.repositories.UserRepository;
+import com.invoiceapp.client.application.mapper.ClientMapper;
 import com.invoiceapp.client.application.service.ClientService;
 import com.invoiceapp.client.domain.entity.Client;
 import com.invoiceapp.client.infrastructure.repository.ClientRepository;
 import com.invoiceapp.client.presentation.dto.request.ClientRequest;
 import com.invoiceapp.client.presentation.dto.response.ClientResponse;
+import com.invoiceapp.common.dto.PageDTO;
+import com.invoiceapp.common.exception.ResourceConflictException;
 import com.invoiceapp.common.exception.ResourceNotFoundException;
 import com.invoiceapp.common.specification.BaseSpecification;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -27,9 +32,15 @@ public class ClientServiceImpl implements ClientService {
 
     private final ClientRepository clientRepository;
     private final UserRepository userRepository;
+    private final ClientMapper clientMapper;
 
     @Override
+    @CacheEvict(value = "clients", allEntries = true)
     public ClientResponse createClient(ClientRequest request, UUID userId) {
+        if (clientRepository.existsByEmailAndUserId(request.getEmail(), userId)) {
+            throw new ResourceConflictException("A client with email '" + request.getEmail() + "' already exists.");
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
@@ -39,68 +50,75 @@ public class ClientServiceImpl implements ClientService {
                 .email(request.getEmail())
                 .phone(request.getPhone())
                 .address(request.getAddress())
-                .paymentPreferences(request.getPaymentPreferences())
                 .build();
 
         client = clientRepository.save(client);
-        return mapToResponse(client);
+        return clientMapper.toResponse(client);
     }
 
+    // ... other methods remain the same
+
     @Override
-    public ClientResponse updateClient(UUID clientId, ClientRequest request, UUID userId) {
-        Client client = clientRepository.findByIdAndUserId(clientId, userId)
+    @CacheEvict(value = "clients", allEntries = true)
+    public ClientResponse updateClient(UUID id, ClientRequest request, UUID userId) {
+        Client client = clientRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Client not found"));
 
         client.setName(request.getName());
         client.setEmail(request.getEmail());
         client.setPhone(request.getPhone());
         client.setAddress(request.getAddress());
-        client.setPaymentPreferences(request.getPaymentPreferences());
 
         client = clientRepository.save(client);
-        return mapToResponse(client);
+        return clientMapper.toResponse(client);
     }
 
     @Override
-    public void deleteClient(UUID clientId, UUID userId) {
-        if (!clientRepository.existsByIdAndUserId(clientId, userId)) {
+    @CacheEvict(value = "clients", allEntries = true)
+    public void deleteClient(UUID id, UUID userId) {
+        if (!clientRepository.existsByIdAndUserId(id, userId)) {
             throw new ResourceNotFoundException("Client not found");
         }
-        clientRepository.deleteById(clientId);
+        clientRepository.deleteById(id);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public ClientResponse getClientById(UUID clientId, UUID userId) {
-        Client client = clientRepository.findByIdAndUserId(clientId, userId)
+    public ClientResponse getClientById(UUID id, UUID userId) {
+        Client client = clientRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Client not found"));
-        return mapToResponse(client);
+        return clientMapper.toResponse(client);
     }
 
     @Override
-    public Page<ClientResponse> getAllClients(UUID userId, int page, int size, String sortBy, String sortDir, String search) {
-        Sort sort = sortDir.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+    @Cacheable(
+            value = "clients",
+            key = "#userId + ':' + #page + ':' + #size + ':' + #sortBy + ':' + #sortDir + ':' + #search",
+            unless = "#result == null || #result.getContent().isEmpty()"
+    )
+    @Transactional(readOnly = true)
+    public PageDTO<ClientResponse> getAllClients(UUID userId, int page, int size,
+                                                 String sortBy, String sortDir, String search) {
+        Sort sort = sortDir.equalsIgnoreCase("asc")
+                ? Sort.by(sortBy).ascending()
+                : Sort.by(sortBy).descending();
+
         Pageable pageable = PageRequest.of(page, size, sort);
 
         Specification<Client> spec = Specification.allOf(
                 BaseSpecification.<Client>withUserId(userId, "user"),
-                BaseSpecification.<Client>withSearch(search, "name", "email", "phone")
+                BaseSpecification.<Client>withSearch(search, "name")
         );
 
         Page<Client> clients = clientRepository.findAll(spec, pageable);
-        return clients.map(this::mapToResponse);
-    }
+        Page<ClientResponse> clientResponsePage = clients.map(clientMapper::toResponse);
 
-    private ClientResponse mapToResponse(Client client) {
-        return ClientResponse.builder()
-                .id(client.getId())
-                .name(client.getName())
-                .email(client.getEmail())
-                .phone(client.getPhone())
-                .address(client.getAddress())
-                .paymentPreferences(client.getPaymentPreferences())
-                .createdAt(client.getCreatedAt())
-                .updatedAt(client.getUpdatedAt())
-                .build();
+        return new PageDTO<>(
+                clientResponsePage.getContent(),
+                clientResponsePage.getTotalPages(),
+                clientResponsePage.getTotalElements(),
+                clientResponsePage.getNumber(),
+                clientResponsePage.getSize()
+        );
     }
 }

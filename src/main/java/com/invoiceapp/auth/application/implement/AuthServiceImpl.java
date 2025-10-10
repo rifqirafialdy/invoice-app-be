@@ -6,21 +6,27 @@ import com.invoiceapp.auth.application.service.TokenService;
 import com.invoiceapp.auth.domain.entity.User;
 import com.invoiceapp.auth.infrastructure.repositories.UserRepository;
 import com.invoiceapp.auth.infrastructure.security.JwtService;
+import com.invoiceapp.auth.presentation.dto.request.ForgotPasswordRequest;
 import com.invoiceapp.auth.presentation.dto.request.LoginRequest;
 import com.invoiceapp.auth.presentation.dto.request.RegisterRequest;
+import com.invoiceapp.auth.presentation.dto.request.ResetPasswordRequest;
 import com.invoiceapp.auth.presentation.dto.response.AuthResponse;
 import com.invoiceapp.common.exception.BadRequestException;
 import com.invoiceapp.common.exception.ResourceNotFoundException;
 import com.invoiceapp.common.exception.UnauthorizedException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
+
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional
 public class AuthServiceImpl implements AuthService {
 
@@ -29,6 +35,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final TokenService tokenService;
     private final EmailService emailService;
+
 
     @Override
     public AuthResponse register(RegisterRequest request) {
@@ -158,4 +165,44 @@ public class AuthServiceImpl implements AuthService {
         String verificationToken = tokenService.generateEmailVerificationToken(email);
         emailService.sendVerificationEmail(email, verificationToken);
     }
+    @Override
+    public void forgotPassword(ForgotPasswordRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + request.getEmail()));
+
+        String resetToken = tokenService.generatePasswordResetToken(user.getEmail());
+
+        emailService.sendPasswordResetEmail(user.getEmail(), resetToken);
+
+        log.info("Password reset email sent to: {}", user.getEmail());
+    }
+
+    @Override
+    public void resetPassword(ResetPasswordRequest request) {
+        String email = tokenService.verifyPasswordResetToken(request.getToken());
+
+        if (email == null) {
+            try {
+                Jwt jwt = jwtService.validateVerificationToken(request.getToken());
+                throw new BadRequestException("Reset link has expired. Please request a new one.");
+            } catch (JwtException e) {
+                throw new BadRequestException("Invalid or expired reset token");
+            }
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new BadRequestException("Passwords do not match");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        log.info("Password reset successfully for user: {}", user.getEmail());
+    }
+
+
+
 }

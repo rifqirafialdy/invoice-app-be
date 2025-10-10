@@ -23,6 +23,7 @@ public interface ClientRepository extends JpaRepository<Client, UUID>, JpaSpecif
 
     Optional<Client> findTopByUserIdOrderByCreatedAtDesc(UUID userId);
 
+    boolean existsByEmailAndUserId(String email, UUID userId);
 
 
 }

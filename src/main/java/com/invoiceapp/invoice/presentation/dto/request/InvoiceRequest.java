@@ -1,6 +1,7 @@
 package com.invoiceapp.invoice.presentation.dto.request;
 
 import com.invoiceapp.invoice.domain.enums.InvoiceStatus;
+import com.invoiceapp.invoice.domain.enums.RecurringFrequency;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.Builder;
@@ -27,7 +28,7 @@ public class InvoiceRequest {
     private InvoiceStatus status;
 
     private Boolean isRecurring = false;
-    private String recurringFrequency;
+    private RecurringFrequency recurringFrequency;
 
     @NotNull(message = "Items are required")
     @Size(min = 1, message = "At least one item is required")

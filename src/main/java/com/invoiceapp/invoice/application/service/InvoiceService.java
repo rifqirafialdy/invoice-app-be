@@ -1,5 +1,6 @@
 package com.invoiceapp.invoice.application.service;
 
+import com.invoiceapp.common.dto.PageDTO;
 import com.invoiceapp.invoice.domain.enums.InvoiceStatus;
 import com.invoiceapp.invoice.presentation.dto.request.InvoiceRequest;
 import com.invoiceapp.invoice.presentation.dto.response.InvoiceResponse;
@@ -11,8 +12,15 @@ import java.util.UUID;
 
 public interface InvoiceService {
     InvoiceResponse createInvoice(InvoiceRequest request, UUID userId);
+
     InvoiceResponse updateInvoice(UUID invoiceId, InvoiceRequest request, UUID userId);
+
     void deleteInvoice(UUID invoiceId, UUID userId);
+
     InvoiceResponse getInvoiceById(UUID invoiceId, UUID userId);
-    Page<InvoiceResponse> getAllInvoices(UUID userId, int page, int size, String sortBy, String sortDir,
-                                         String search, InvoiceStatus status, LocalDate startDate, LocalDate endDate);}
+
+    PageDTO<InvoiceResponse> getAllInvoices(UUID userId, int page, int size, String sortBy, String sortDir,
+                                            String search, InvoiceStatus status, LocalDate startDate, LocalDate endDate, Boolean isRecurring);
+
+    InvoiceResponse stopRecurring(UUID invoiceId, UUID userId);
+}

@@ -72,6 +72,7 @@ public class JwtService {
         String userIdStr = jwt.getClaim("userId");
         return UUID.fromString(userIdStr);
     }
+
     public String generateVerificationToken(String email) {
         Instant now = Instant.now();
 
@@ -90,4 +91,55 @@ public class JwtService {
     public Jwt validateVerificationToken(String token) {
         return jwtDecoder.decode(token);
     }
+
+    public String generatePublicActionToken(UUID invoiceId, String action) {
+        Instant now = Instant.now();
+
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .issuer("invoice-app")
+                .issuedAt(now)
+                .expiresAt(now.plus(7, ChronoUnit.DAYS))
+                .claim("invoiceId", invoiceId.toString())
+                .claim("action", action)
+                .build();
+
+        JwsHeader jwsHeader = JwsHeader.with(() -> "HS256").build();
+        return jwtEncoder.encode(JwtEncoderParameters.from(jwsHeader, claims)).getTokenValue();
+    }
+    public Jwt validatePublicActionToken(String token) {
+        return jwtDecoder.decode(token);
+    }
+    public String generatePasswordResetToken(String email) {
+        Instant now = Instant.now();
+
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .issuer("invoice-app")
+                .issuedAt(now)
+                .expiresAt(now.plus(1, ChronoUnit.HOURS))
+                .subject(email)
+                .claim("type", "password_reset")
+                .build();
+
+        JwsHeader jwsHeader = JwsHeader.with(() -> "HS256").build();
+        return jwtEncoder.encode(JwtEncoderParameters.from(jwsHeader, claims)).getTokenValue();
+    }
+
+    public String generateEmailChangeToken(String oldEmail, String newEmail, UUID userId) {
+        Instant now = Instant.now();
+
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .issuer("invoice-app")
+                .issuedAt(now)
+                .expiresAt(now.plus(1, ChronoUnit.HOURS))
+                .subject(oldEmail)
+                .claim("userId", userId.toString())
+                .claim("newEmail", newEmail)
+                .claim("type", "email_change")
+                .build();
+
+        JwsHeader jwsHeader = JwsHeader.with(() -> "HS256").build();
+        return jwtEncoder.encode(JwtEncoderParameters.from(jwsHeader, claims)).getTokenValue();
+    }
+
+
 }

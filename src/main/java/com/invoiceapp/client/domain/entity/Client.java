@@ -3,8 +3,9 @@ package com.invoiceapp.client.domain.entity;
 import com.invoiceapp.auth.domain.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.Where;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -17,7 +18,8 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @SQLDelete(sql = "UPDATE clients SET deleted_at = NOW() WHERE id = ?")
-@Where(clause = "deleted_at IS NULL")
+@FilterDef(name = "deletedClientFilter", defaultCondition = "deleted_at IS NULL")
+@Filter(name = "deletedClientFilter")
 public class Client {
 
     @Id

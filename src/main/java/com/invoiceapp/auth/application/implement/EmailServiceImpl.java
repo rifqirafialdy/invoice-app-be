@@ -95,7 +95,7 @@ public class EmailServiceImpl implements EmailService {
             context.setVariable("paymentLink", paymentLink);
             context.setVariable("cancelLink", cancelLink);
 
-            String htmlContent = templateEngine.process("invoice-with-actions", context); // Menggunakan template baru
+            String htmlContent = templateEngine.process("invoice-with-actions", context);
 
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -126,7 +126,7 @@ public class EmailServiceImpl implements EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
 
             helper.setFrom(fromEmail);
-            helper.setTo(userEmail); // Mengirim ke pemilik bisnis
+            helper.setTo(userEmail);
             helper.setSubject(subject);
             helper.setText(body, false);
 
@@ -137,6 +137,7 @@ public class EmailServiceImpl implements EmailService {
             throw new RuntimeException("Failed to send notification email");
         }
     }
+
     @Override
     public void sendPaymentConfirmationNotification(String userEmail, String clientName, String invoiceNumber) {
         try {
@@ -160,6 +161,7 @@ public class EmailServiceImpl implements EmailService {
             throw new RuntimeException("Failed to send notification email");
         }
     }
+
     @Override
     public void sendPaymentConfirmationEmail(String to, String clientName, String invoiceNumber,
                                              String totalAmount, String invoiceViewLink) {
@@ -188,6 +190,7 @@ public class EmailServiceImpl implements EmailService {
             throw new RuntimeException("Failed to send email");
         }
     }
+
     @Override
     public void sendSimpleEmail(String to, String subject, String message) {
         try {
@@ -207,6 +210,7 @@ public class EmailServiceImpl implements EmailService {
             throw new RuntimeException("Failed to send email");
         }
     }
+
     @Override
     public void sendEmailChangeVerification(String to, String token) {
         try {
@@ -215,7 +219,7 @@ public class EmailServiceImpl implements EmailService {
 
             helper.setFrom(fromEmail);
             helper.setTo(to);
-            helper.setSubject("Verify Your New Email Address - Invoice Management");
+            helper.setSubject("Verify Your Email Change Request - Invoice Management");
 
             String verifyUrl = frontendUrl + "/verify-email-change?token=" + token;
 
@@ -235,31 +239,27 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
-    public void sendEmailChangeNotification(String oldEmail, String newEmail) {
+    public void sendEmailChangeNotification(String newEmail, String oldEmail) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setFrom(fromEmail);
-            helper.setTo(oldEmail);
+            helper.setTo(newEmail);
             helper.setSubject("Your Email Has Been Changed - Invoice Management");
 
             Context context = new Context();
-            context.setVariable("newEmail", newEmail);
+            context.setVariable("oldEmail", oldEmail);
 
             String htmlContent = templateEngine.process("email-change-notification", context);
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
-            log.info("Email change notification sent to old email: {}", oldEmail);
+            log.info("Email change notification sent to new email: {}", newEmail);
 
         } catch (MessagingException e) {
-            log.error("Failed to send email change notification to: {}", oldEmail, e);
+            log.error("Failed to send email change notification to: {}", newEmail, e);
             throw new RuntimeException("Failed to send email change notification");
         }
     }
-
-
-
-
 }

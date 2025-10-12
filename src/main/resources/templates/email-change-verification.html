@@ -3,22 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verify Your New Email</title>
+    <title>Confirm Email Change</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
 <div style="background: linear-gradient(to right, #4F46E5, #7C3AED); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-    <h1 style="color: white; margin: 0;">Verify Your New Email</h1>
+    <h1 style="color: white; margin: 0;">Confirm Email Change Request</h1>
 </div>
 
 <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
     <p style="font-size: 16px;">Hello,</p>
 
-    <p style="font-size: 16px;">You requested to change your email address. Please verify this new email address by clicking the button below:</p>
+    <p style="font-size: 16px;">We received a request to change your email address. To confirm this change, please click the button below:</p>
 
     <div style="text-align: center; margin: 30px 0;">
         <a th:href="${verifyUrl}"
            style="background-color: #4F46E5; color: white; padding: 14px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
-            Verify New Email
+            Confirm Email Change
         </a>
     </div>
 
@@ -30,7 +30,7 @@
             <strong>Important:</strong> This link will expire in 1 hour.
         </p>
         <p style="font-size: 14px; color: #666;">
-            If you didn't request this email change, please ignore this message and your email will remain unchanged.
+            If you didn't request this email change, please ignore this message and your email will remain unchanged. We recommend changing your password immediately if you did not make this request.
         </p>
     </div>
 

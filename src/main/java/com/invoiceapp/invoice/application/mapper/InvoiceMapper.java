@@ -19,8 +19,8 @@ public class InvoiceMapper {
 
         return InvoiceResponse.builder()
                 .id(invoice.getId())
-                .clientId(invoice.getClient().getId())
-                .clientName(invoice.getClient().getName())
+                .clientId(invoice.getClient() != null ? invoice.getClient().getId() : null)
+                .clientName(invoice.getClient() != null ? invoice.getClient().getName() : "Unknown Client")
                 .invoiceNumber(invoice.getInvoiceNumber())
                 .issueDate(invoice.getIssueDate())
                 .dueDate(invoice.getDueDate())

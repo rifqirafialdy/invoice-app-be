@@ -12,7 +12,9 @@ import com.invoiceapp.common.dto.PageDTO;
 import com.invoiceapp.common.exception.ResourceConflictException;
 import com.invoiceapp.common.exception.ResourceNotFoundException;
 import com.invoiceapp.common.specification.BaseSpecification;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.Session;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -33,10 +35,14 @@ public class ClientServiceImpl implements ClientService {
     private final ClientRepository clientRepository;
     private final UserRepository userRepository;
     private final ClientMapper clientMapper;
+    private final EntityManager entityManager;
 
     @Override
     @CacheEvict(value = "clients", allEntries = true)
     public ClientResponse createClient(ClientRequest request, UUID userId) {
+        Session session = entityManager.unwrap(Session.class);
+        session.enableFilter("deletedClientFilter");
+
         if (clientRepository.existsByEmailAndUserId(request.getEmail(), userId)) {
             throw new ResourceConflictException("A client with email '" + request.getEmail() + "' already exists.");
         }
@@ -56,11 +62,12 @@ public class ClientServiceImpl implements ClientService {
         return clientMapper.toResponse(client);
     }
 
-    // ... other methods remain the same
-
     @Override
     @CacheEvict(value = "clients", allEntries = true)
     public ClientResponse updateClient(UUID id, ClientRequest request, UUID userId) {
+        Session session = entityManager.unwrap(Session.class);
+        session.enableFilter("deletedClientFilter");
+
         Client client = clientRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Client not found"));
 
@@ -76,6 +83,9 @@ public class ClientServiceImpl implements ClientService {
     @Override
     @CacheEvict(value = "clients", allEntries = true)
     public void deleteClient(UUID id, UUID userId) {
+        Session session = entityManager.unwrap(Session.class);
+        session.enableFilter("deletedClientFilter");
+
         if (!clientRepository.existsByIdAndUserId(id, userId)) {
             throw new ResourceNotFoundException("Client not found");
         }
@@ -85,6 +95,9 @@ public class ClientServiceImpl implements ClientService {
     @Override
     @Transactional(readOnly = true)
     public ClientResponse getClientById(UUID id, UUID userId) {
+        Session session = entityManager.unwrap(Session.class);
+        session.enableFilter("deletedClientFilter");
+
         Client client = clientRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Client not found"));
         return clientMapper.toResponse(client);
@@ -99,6 +112,9 @@ public class ClientServiceImpl implements ClientService {
     @Transactional(readOnly = true)
     public PageDTO<ClientResponse> getAllClients(UUID userId, int page, int size,
                                                  String sortBy, String sortDir, String search) {
+        Session session = entityManager.unwrap(Session.class);
+        session.enableFilter("deletedClientFilter");
+
         Sort sort = sortDir.equalsIgnoreCase("asc")
                 ? Sort.by(sortBy).ascending()
                 : Sort.by(sortBy).descending();

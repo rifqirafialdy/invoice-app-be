@@ -83,6 +83,7 @@ public class UserServiceImpl implements UserService {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
     }
+
     @Override
     public void changeEmail(UUID userId, ChangeEmailRequest request) {
         User user = userRepository.findById(userId)
@@ -106,9 +107,9 @@ public class UserServiceImpl implements UserService {
                 user.getId()
         );
 
-        emailService.sendEmailChangeVerification(request.getNewEmail(), changeToken);
+        emailService.sendEmailChangeVerification(user.getEmail(), changeToken);
 
-        log.info("Email change verification sent to new email: {}", request.getNewEmail());
+        log.info("Email change verification sent to old email: {}", user.getEmail());
     }
 
     @Override
@@ -135,7 +136,7 @@ public class UserServiceImpl implements UserService {
         user.setEmail(data.newEmail());
         userRepository.save(user);
 
-        emailService.sendEmailChangeNotification(oldEmail, data.newEmail());
+        emailService.sendEmailChangeNotification(data.newEmail(), oldEmail);
 
         log.info("Email changed successfully from {} to {}", oldEmail, data.newEmail());
     }

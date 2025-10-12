@@ -10,8 +10,10 @@ import com.invoiceapp.invoice.domain.entity.Invoice;
 import com.invoiceapp.invoice.domain.enums.InvoiceStatus;
 import com.invoiceapp.invoice.infrastructure.repository.InvoiceRepository;
 import com.invoiceapp.invoice.presentation.dto.response.InvoiceResponse;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.Session;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -34,9 +36,13 @@ public class DashboardServiceImpl implements DashboardService {
     private final InvoiceRepository invoiceRepository;
     private final ClientRepository clientRepository;
     private final InvoiceMapper invoiceMapper;
+    private final EntityManager entityManager;
 
     @Override
     public DashboardStatsResponse getDashboardStats(UUID userId) {
+        Session session = entityManager.unwrap(Session.class);
+        session.disableFilter("deletedClientFilter");
+
         Specification<Invoice> userSpec = BaseSpecification.withUserId(userId, "user");
         List<Invoice> allInvoices = invoiceRepository.findAll(userSpec);
 
@@ -72,6 +78,7 @@ public class DashboardServiceImpl implements DashboardService {
             }
         }
 
+        session.enableFilter("deletedClientFilter");
         long totalClients = clientRepository.count(BaseSpecification.withUserId(userId, "user"));
 
         return DashboardStatsResponse.builder()
@@ -89,6 +96,9 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     public List<InvoiceResponse> getRecentInvoices(UUID userId, int limit) {
+        Session session = entityManager.unwrap(Session.class);
+        session.disableFilter("deletedClientFilter");
+
         Specification<Invoice> spec = BaseSpecification.withUserId(userId, "user");
         Pageable pageable = PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "createdAt"));
 
@@ -100,6 +110,9 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     public List<RecentActivityResponse> getRecentActivity(UUID userId, int limit) {
+        Session session = entityManager.unwrap(Session.class);
+        session.disableFilter("deletedClientFilter");
+
         List<Invoice> recentInvoices = invoiceRepository.findAll(
                 BaseSpecification.withUserId(userId, "user"),
                 PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "updatedAt"))
@@ -116,7 +129,9 @@ public class DashboardServiceImpl implements DashboardService {
                     .message(message)
                     .timestamp(invoice.getUpdatedAt())
                     .invoiceNumber(invoice.getInvoiceNumber())
-                    .clientName(invoice.getClient().getName())
+                    .clientName(invoice.getClient() != null ?
+                            invoice.getClient().getName() :
+                            "Unknown Client")
                     .build());
         }
 
@@ -124,17 +139,21 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     private String generateActivityMessage(Invoice invoice) {
+        String clientName = invoice.getClient() != null ?
+                invoice.getClient().getName() :
+                "Unknown Client";
+
         return switch (invoice.getStatus()) {
             case PAID -> String.format("Invoice %s paid by %s",
-                    invoice.getInvoiceNumber(), invoice.getClient().getName());
+                    invoice.getInvoiceNumber(), clientName);
             case SENT -> String.format("Invoice %s sent to %s",
-                    invoice.getInvoiceNumber(), invoice.getClient().getName());
+                    invoice.getInvoiceNumber(), clientName);
             case OVERDUE -> String.format("Invoice %s is overdue for %s",
-                    invoice.getInvoiceNumber(), invoice.getClient().getName());
+                    invoice.getInvoiceNumber(), clientName);
             case CANCELLED -> String.format("Invoice %s cancelled for %s",
-                    invoice.getInvoiceNumber(), invoice.getClient().getName());
+                    invoice.getInvoiceNumber(), clientName);
             default -> String.format("Invoice %s created for %s",
-                    invoice.getInvoiceNumber(), invoice.getClient().getName());
+                    invoice.getInvoiceNumber(), clientName);
         };
     }
 

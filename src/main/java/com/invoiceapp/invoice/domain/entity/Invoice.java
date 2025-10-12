@@ -5,10 +5,10 @@ import com.invoiceapp.client.domain.entity.Client;
 import com.invoiceapp.invoice.domain.enums.InvoiceStatus;
 import com.invoiceapp.invoice.domain.enums.RecurringFrequency;
 import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Table;
 import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.Where;
+import org.hibernate.annotations.*;
 import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
@@ -39,6 +39,7 @@ public class Invoice {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id", nullable = false)
+    @NotFound(action = NotFoundAction.IGNORE)
     private Client client;
 
     @Column(unique = true, nullable = false)

@@ -9,6 +9,7 @@ import com.invoiceapp.client.infrastructure.repository.ClientRepository;
 import com.invoiceapp.client.presentation.dto.request.ClientRequest;
 import com.invoiceapp.client.presentation.dto.response.ClientResponse;
 import com.invoiceapp.common.dto.PageDTO;
+import com.invoiceapp.common.exception.BadRequestException;
 import com.invoiceapp.common.exception.ResourceConflictException;
 import com.invoiceapp.common.exception.ResourceNotFoundException;
 import com.invoiceapp.common.specification.BaseSpecification;
@@ -43,12 +44,16 @@ public class ClientServiceImpl implements ClientService {
         Session session = entityManager.unwrap(Session.class);
         session.enableFilter("deletedClientFilter");
 
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (request.getEmail() != null && request.getEmail().equalsIgnoreCase(user.getEmail())) {
+            throw new BadRequestException("You cannot add your own email as a client");
+        }
+
         if (clientRepository.existsByEmailAndUserId(request.getEmail(), userId)) {
             throw new ResourceConflictException("A client with email '" + request.getEmail() + "' already exists.");
         }
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         Client client = Client.builder()
                 .user(user)

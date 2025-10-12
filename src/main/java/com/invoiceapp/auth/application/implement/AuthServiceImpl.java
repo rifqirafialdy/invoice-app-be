@@ -6,10 +6,7 @@ import com.invoiceapp.auth.application.service.TokenService;
 import com.invoiceapp.auth.domain.entity.User;
 import com.invoiceapp.auth.infrastructure.repositories.UserRepository;
 import com.invoiceapp.auth.infrastructure.security.JwtService;
-import com.invoiceapp.auth.presentation.dto.request.ForgotPasswordRequest;
-import com.invoiceapp.auth.presentation.dto.request.LoginRequest;
-import com.invoiceapp.auth.presentation.dto.request.RegisterRequest;
-import com.invoiceapp.auth.presentation.dto.request.ResetPasswordRequest;
+import com.invoiceapp.auth.presentation.dto.request.*;
 import com.invoiceapp.auth.presentation.dto.response.AuthResponse;
 import com.invoiceapp.common.exception.BadRequestException;
 import com.invoiceapp.common.exception.ResourceNotFoundException;
@@ -22,8 +19,6 @@ import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-
-
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -35,7 +30,6 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final TokenService tokenService;
     private final EmailService emailService;
-
 
     @Override
     public AuthResponse register(RegisterRequest request) {
@@ -73,24 +67,9 @@ public class AuthServiceImpl implements AuthService {
         String accessToken = jwtService.generateAccessToken(user.getId(), user.getEmail());
         String refreshToken = jwtService.generateRefreshToken(user.getId(), user.getEmail());
 
-        tokenService.storeRefreshToken(
-                refreshToken,
-                user.getId(),
-                request.getDeviceInfo(),
-                30
-        );
+        tokenService.storeRefreshToken(refreshToken, user.getId(), request.getDeviceInfo(), 30);
 
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .tokenType("Bearer")
-                .expiresIn(900)
-                .userId(user.getId())
-                .email(user.getEmail())
-                .name(user.getName())
-                .companyName(user.getCompanyName())
-                .isVerified(user.getIsVerified())
-                .build();
+        return buildAuthResponse(user, accessToken, refreshToken);
     }
 
     @Override
@@ -99,7 +78,7 @@ public class AuthServiceImpl implements AuthService {
             throw new UnauthorizedException("Invalid or expired refresh token");
         }
 
-        var jwt = jwtService.validateRefreshToken(refreshToken);
+        Jwt jwt = jwtService.validateRefreshToken(refreshToken);
         String email = jwtService.extractEmail(jwt);
         var userId = jwtService.extractUserId(jwt);
 
@@ -125,21 +104,7 @@ public class AuthServiceImpl implements AuthService {
         String email = tokenService.verifyEmailToken(token);
 
         if (email == null) {
-            try {
-                Jwt jwt = jwtService.validateVerificationToken(token);
-                String emailFromToken = jwt.getSubject();
-
-                User user = userRepository.findByEmail(emailFromToken)
-                        .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-
-                if (user.getIsVerified()) {
-                    throw new BadRequestException("Your account is already verified. You can login now.");
-                } else {
-                    throw new BadRequestException("This verification link has been used or a newer one was sent. Please check your email and use the latest verification link.");
-                }
-            } catch (JwtException e) {
-                throw new BadRequestException("Verification link has expired. Please login to request a new verification link.");
-            }
+            handleExpiredVerificationToken(token);
         }
 
         User user = userRepository.findByEmail(email)
@@ -165,13 +130,13 @@ public class AuthServiceImpl implements AuthService {
         String verificationToken = tokenService.generateEmailVerificationToken(email);
         emailService.sendVerificationEmail(email, verificationToken);
     }
+
     @Override
     public void forgotPassword(ForgotPasswordRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + request.getEmail()));
 
         String resetToken = tokenService.generatePasswordResetToken(user.getEmail());
-
         emailService.sendPasswordResetEmail(user.getEmail(), resetToken);
 
         log.info("Password reset email sent to: {}", user.getEmail());
@@ -183,7 +148,7 @@ public class AuthServiceImpl implements AuthService {
 
         if (email == null) {
             try {
-                Jwt jwt = jwtService.validateVerificationToken(request.getToken());
+                jwtService.validateVerificationToken(request.getToken());
                 throw new BadRequestException("Reset link has expired. Please request a new one.");
             } catch (JwtException e) {
                 throw new BadRequestException("Invalid or expired reset token");
@@ -203,6 +168,35 @@ public class AuthServiceImpl implements AuthService {
         log.info("Password reset successfully for user: {}", user.getEmail());
     }
 
+    private AuthResponse buildAuthResponse(User user, String accessToken, String refreshToken) {
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .tokenType("Bearer")
+                .expiresIn(900)
+                .userId(user.getId())
+                .email(user.getEmail())
+                .name(user.getName())
+                .companyName(user.getCompanyName())
+                .isVerified(user.getIsVerified())
+                .build();
+    }
 
+    private void handleExpiredVerificationToken(String token) {
+        try {
+            Jwt jwt = jwtService.validateVerificationToken(token);
+            String emailFromToken = jwt.getSubject();
 
+            User user = userRepository.findByEmail(emailFromToken)
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+            if (user.getIsVerified()) {
+                throw new BadRequestException("Your account is already verified. You can login now.");
+            } else {
+                throw new BadRequestException("This verification link has been used or a newer one was sent. Please check your email and use the latest verification link.");
+            }
+        } catch (JwtException e) {
+            throw new BadRequestException("Verification link has expired. Please login to request a new verification link.");
+        }
+    }
 }

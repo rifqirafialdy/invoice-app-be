@@ -37,11 +37,12 @@ public class InvoiceEmailService {
         }
 
         try {
+            String viewToken = tokenService.generatePublicActionToken(invoice.getId(), "VIEW");
             String payToken = tokenService.generatePublicActionToken(invoice.getId(), "PAY");
             String cancelToken = tokenService.generatePublicActionToken(invoice.getId(), "CANCEL");
 
-            String invoiceViewLink = String.format("%s/invoices/view/%s",
-                    frontendUrl, invoice.getInvoiceNumber());
+            String invoiceViewLink = String.format("%s/invoices/view?token=%s",
+                    frontendUrl, viewToken);
             String paymentLink = String.format("%s/invoices/pay?token=%s",
                     frontendUrl, payToken);
             String cancelLink = String.format("%s/invoices/cancel-request?token=%s",
@@ -263,10 +264,142 @@ public class InvoiceEmailService {
             log.error("Failed to send stopped notification to client: {}", e.getMessage());
         }
     }
+    public void sendCancellationApprovedEmail(Invoice invoice) {
+        String clientEmail = invoice.getClient().getEmail();
+
+        if (clientEmail == null || clientEmail.isBlank()) {
+            log.warn("Skipping cancellation approved email for Invoice {} - Client has no email",
+                    invoice.getInvoiceNumber());
+            return;
+        }
+
+        try {
+            String subject = "✓ Cancellation Approved - Invoice #" + invoice.getInvoiceNumber();
+            String message = String.format(
+                    "Dear %s,\n\n" +
+                            "Your cancellation request for Invoice #%s has been approved.\n\n" +
+                            "The invoice has been cancelled and no further action is required from you.\n\n" +
+                            "Invoice Details:\n" +
+                            "- Invoice Number: %s\n" +
+                            "- Amount: Rp %s\n" +
+                            "- Status: CANCELLED\n\n" +
+                            "If you have any questions, please contact us.\n\n" +
+                            "Thank you,\n" +
+                            "%s",
+                    invoice.getClient().getName(),
+                    invoice.getInvoiceNumber(),
+                    invoice.getInvoiceNumber(),
+                    formatCurrency(invoice.getTotal()),
+                    invoice.getUser().getName() != null ? invoice.getUser().getName() : "Invoice Management"
+            );
+
+            emailService.sendSimpleEmail(clientEmail, subject, message);
+
+            log.info("Cancellation approved email sent for Invoice {} to {}",
+                    invoice.getInvoiceNumber(), clientEmail);
+
+        } catch (Exception e) {
+            log.error("Failed to send cancellation approved email for Invoice {}: {}",
+                    invoice.getInvoiceNumber(), e.getMessage());
+        }
+    }
+
+    public void sendCancellationRejectedEmail(Invoice invoice) {
+        String clientEmail = invoice.getClient().getEmail();
+
+        if (clientEmail == null || clientEmail.isBlank()) {
+            log.warn("Skipping cancellation rejected email for Invoice {} - Client has no email",
+                    invoice.getInvoiceNumber());
+            return;
+        }
+
+        try {
+            String subject = "✗ Cancellation Request Rejected - Invoice #" + invoice.getInvoiceNumber();
+            String message = String.format(
+                    "Dear %s,\n\n" +
+                            "Your cancellation request for Invoice #%s has been rejected.\n\n" +
+                            "The invoice remains active and payment is still due.\n\n" +
+                            "Invoice Details:\n" +
+                            "- Invoice Number: %s\n" +
+                            "- Amount Due: Rp %s\n" +
+                            "- Due Date: %s\n" +
+                            "- Status: %s\n\n" +
+                            "If you have any questions or concerns, please contact us.\n\n" +
+                            "Thank you,\n" +
+                            "%s",
+                    invoice.getClient().getName(),
+                    invoice.getInvoiceNumber(),
+                    invoice.getInvoiceNumber(),
+                    formatCurrency(invoice.getTotal()),
+                    invoice.getDueDate(),
+                    invoice.getStatus(),
+                    invoice.getUser().getName() != null ? invoice.getUser().getName() : "Invoice Management"
+            );
+
+            emailService.sendSimpleEmail(clientEmail, subject, message);
+
+            log.info("Cancellation rejected email sent for Invoice {} to {}",
+                    invoice.getInvoiceNumber(), clientEmail);
+
+        } catch (Exception e) {
+            log.error("Failed to send cancellation rejected email for Invoice {}: {}",
+                    invoice.getInvoiceNumber(), e.getMessage());
+        }
+    }
+
+    public void sendPaymentRejectedEmail(Invoice invoice) {
+        String clientEmail = invoice.getClient().getEmail();
+
+        if (clientEmail == null || clientEmail.isBlank()) {
+            log.warn("Skipping payment rejected email for Invoice {} - Client has no email",
+                    invoice.getInvoiceNumber());
+            return;
+        }
+
+        try {
+            String payToken = tokenService.generatePublicActionToken(invoice.getId(), "PAY");
+            String paymentLink = String.format("%s/invoices/pay?token=%s", frontendUrl, payToken);
+
+            String subject = "✗ Payment Not Verified - Invoice #" + invoice.getInvoiceNumber();
+            String message = String.format(
+                    "Dear %s,\n\n" +
+                            "We were unable to verify your payment for Invoice #%s.\n\n" +
+                            "Reason: Payment not received in our account\n\n" +
+                            "Invoice Details:\n" +
+                            "- Invoice Number: %s\n" +
+                            "- Amount Due: Rp %s\n" +
+                            "- Due Date: %s\n" +
+                            "- Status: %s\n\n" +
+                            "Please check your payment details and try again:\n" +
+                            "%s\n\n" +
+                            "If you believe you have already paid, please contact us with your payment proof.\n\n" +
+                            "Thank you,\n" +
+                            "%s",
+                    invoice.getClient().getName(),
+                    invoice.getInvoiceNumber(),
+                    invoice.getInvoiceNumber(),
+                    formatCurrency(invoice.getTotal()),
+                    invoice.getDueDate(),
+                    invoice.getStatus(),
+                    paymentLink,
+                    invoice.getUser().getName() != null ? invoice.getUser().getName() : "Invoice Management"
+            );
+
+            emailService.sendSimpleEmail(clientEmail, subject, message);
+
+            log.info("Payment rejected email sent for Invoice {} to {}",
+                    invoice.getInvoiceNumber(), clientEmail);
+
+        } catch (Exception e) {
+            log.error("Failed to send payment rejected email for Invoice {}: {}",
+                    invoice.getInvoiceNumber(), e.getMessage());
+        }
+    }
 
     private String formatCurrency(BigDecimal amount) {
         Locale indonesia = new Locale("in", "ID");
         NumberFormat formatter = NumberFormat.getNumberInstance(indonesia);
         return formatter.format(amount.longValue());
     }
+
 }

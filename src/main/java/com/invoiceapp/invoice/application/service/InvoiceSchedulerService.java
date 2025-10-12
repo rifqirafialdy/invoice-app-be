@@ -27,7 +27,7 @@ public class InvoiceSchedulerService {
     private final InvoiceNumberGenerator invoiceNumberGenerator;
     private final InvoiceEmailService invoiceEmailService;
     private final RecurringInvoiceHelper recurringInvoiceHelper;
-    private final CacheManager cacheManager; // Inject CacheManager
+    private final CacheManager cacheManager;
 
     @Scheduled(cron = "0 * * * * *")
     @Transactional

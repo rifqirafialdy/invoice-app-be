@@ -23,5 +23,6 @@ public class AuthResponse {
     private String name;
     private String companyName;
     private Boolean isVerified;
+    private String logoUrl;
     private String message;
 }

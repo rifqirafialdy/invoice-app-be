@@ -5,6 +5,7 @@ import com.invoiceapp.auth.infrastructure.repositories.UserRepository;
 import com.invoiceapp.client.domain.entity.Client;
 import com.invoiceapp.client.infrastructure.repository.ClientRepository;
 import com.invoiceapp.common.dto.PageDTO;
+import com.invoiceapp.common.exception.BadRequestException;
 import com.invoiceapp.common.exception.ResourceNotFoundException;
 import com.invoiceapp.common.specification.BaseSpecification;
 import com.invoiceapp.invoice.application.helper.RecurringInvoiceHelper;
@@ -239,8 +240,119 @@ public class InvoiceServiceImpl implements InvoiceService {
         }
 
         invoice.setIsRecurring(false);
-        invoice = invoiceRepository.save(invoice);
+
+        invoice.getClient().getName();
+
         log.info("Stopped recurring invoice: {} for user: {}", invoice.getInvoiceNumber(), userId);
         return invoiceMapper.toResponse(invoice);
     }
+    @Override
+    @CacheEvict(value = "invoices", key = "#userId.toString()")
+    @Transactional
+    public InvoiceResponse approveCancellation(UUID invoiceId, UUID userId) {
+        Invoice invoice = invoiceRepository.findByIdAndUserId(invoiceId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice not found"));
+
+        if (invoice.getStatus() != InvoiceStatus.CANCELLATION_REQUESTED) {
+            throw new BadRequestException("Invoice cancellation has not been requested");
+        }
+
+        if (Boolean.TRUE.equals(invoice.getIsRecurring())) {
+            invoice.setIsRecurring(false);
+            log.info("Stopped recurring for cancelled invoice: {}", invoice.getInvoiceNumber());
+        }
+
+        invoice.setStatus(InvoiceStatus.CANCELLED);
+        invoice = invoiceRepository.save(invoice);
+
+        invoiceEmailService.sendCancellationApprovedEmail(invoice);
+
+        log.info("Cancellation approved for invoice: {} by user: {}", invoice.getInvoiceNumber(), userId);
+        return invoiceMapper.toResponse(invoice);
+    }
+
+    @Override
+    @CacheEvict(value = "invoices", key = "#userId.toString()")
+    @Transactional
+    public InvoiceResponse rejectCancellation(UUID invoiceId, UUID userId) {
+        Invoice invoice = invoiceRepository.findByIdAndUserId(invoiceId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice not found"));
+
+        if (invoice.getStatus() != InvoiceStatus.CANCELLATION_REQUESTED) {
+            throw new BadRequestException("Invoice cancellation has not been requested");
+        }
+
+        LocalDate today = LocalDate.now();
+        if (invoice.getDueDate().isBefore(today)) {
+            invoice.setStatus(InvoiceStatus.OVERDUE);
+        } else if (invoice.getDueDate().isEqual(today)) {
+            invoice.setStatus(InvoiceStatus.DUE);
+        } else {
+            invoice.setStatus(InvoiceStatus.SENT);
+        }
+
+        invoice = invoiceRepository.save(invoice);
+
+        invoiceEmailService.sendCancellationRejectedEmail(invoice);
+
+        if (invoice.getStatus() == InvoiceStatus.SENT) {
+            invoiceEmailService.sendInvoiceActionEmail(invoice, "Cancellation Request Rejected - Invoice Still Due");
+        }
+
+        log.info("Cancellation rejected for invoice: {} by user: {}", invoice.getInvoiceNumber(), userId);
+        return invoiceMapper.toResponse(invoice);
+    }
+
+    @Override
+    @CacheEvict(value = "invoices", key = "#userId.toString()")
+    @Transactional
+    public InvoiceResponse confirmPayment(UUID invoiceId, UUID userId) {
+        Invoice invoice = invoiceRepository.findByIdAndUserId(invoiceId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice not found"));
+
+        if (invoice.getStatus() != InvoiceStatus.PAYMENT_PENDING) {
+            throw new BadRequestException("Payment confirmation has not been received from client");
+        }
+
+        invoice.setStatus(InvoiceStatus.PAID);
+        invoice = invoiceRepository.save(invoice);
+
+        invoiceEmailService.sendPaymentConfirmationEmail(invoice);
+
+        log.info("Payment confirmed for invoice: {} by user: {}", invoice.getInvoiceNumber(), userId);
+        return invoiceMapper.toResponse(invoice);
+    }
+
+    @Override
+    @CacheEvict(value = "invoices", key = "#userId.toString()")
+    @Transactional
+    public InvoiceResponse rejectPayment(UUID invoiceId, UUID userId) {
+        Invoice invoice = invoiceRepository.findByIdAndUserId(invoiceId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice not found"));
+
+        if (invoice.getStatus() != InvoiceStatus.PAYMENT_PENDING) {
+            throw new BadRequestException("Payment confirmation has not been received from client");
+        }
+
+        LocalDate today = LocalDate.now();
+        if (invoice.getDueDate().isBefore(today)) {
+            invoice.setStatus(InvoiceStatus.OVERDUE);
+        } else if (invoice.getDueDate().isEqual(today)) {
+            invoice.setStatus(InvoiceStatus.DUE);
+        } else {
+            invoice.setStatus(InvoiceStatus.SENT);
+        }
+
+        invoice = invoiceRepository.save(invoice);
+
+        invoiceEmailService.sendPaymentRejectedEmail(invoice);
+
+        if (invoice.getStatus() == InvoiceStatus.SENT) {
+            invoiceEmailService.sendInvoiceActionEmail(invoice, "Payment Request Rejected - Invoice Still Due");
+        }
+
+        log.info("Payment rejected for invoice: {} by user: {}", invoice.getInvoiceNumber(), userId);
+        return invoiceMapper.toResponse(invoice);
+    }
+
 }

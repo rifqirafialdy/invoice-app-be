@@ -23,4 +23,10 @@ public interface InvoiceService {
                                             String search, InvoiceStatus status, LocalDate startDate, LocalDate endDate, Boolean isRecurring);
 
     InvoiceResponse stopRecurring(UUID invoiceId, UUID userId);
+
+    InvoiceResponse approveCancellation(UUID invoiceId, UUID userId);
+    InvoiceResponse rejectCancellation(UUID invoiceId, UUID userId);
+    InvoiceResponse confirmPayment(UUID invoiceId, UUID userId);
+    InvoiceResponse rejectPayment(UUID invoiceId, UUID userId);
+
 }

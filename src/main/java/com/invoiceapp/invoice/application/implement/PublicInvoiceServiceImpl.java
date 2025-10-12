@@ -3,6 +3,7 @@ package com.invoiceapp.invoice.application.implement;
 import com.invoiceapp.auth.application.service.EmailService;
 import com.invoiceapp.auth.application.service.TokenService;
 import com.invoiceapp.auth.domain.entity.User;
+import com.invoiceapp.client.domain.entity.Client;
 import com.invoiceapp.invoice.application.service.PublicInvoiceService;
 import com.invoiceapp.invoice.domain.entity.Invoice;
 import com.invoiceapp.invoice.domain.enums.InvoiceStatus;
@@ -10,12 +11,14 @@ import com.invoiceapp.invoice.infrastructure.repository.InvoiceRepository;
 import com.invoiceapp.common.exception.BadRequestException;
 import com.invoiceapp.common.exception.ResourceNotFoundException;
 
+import com.invoiceapp.invoice.presentation.dto.response.PublicInvoiceResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -81,5 +84,49 @@ public class PublicInvoiceServiceImpl implements PublicInvoiceService {
         if (invoiceCache != null) {
             invoiceCache.evict(userId.toString());
         }
+    }
+    @Override
+    @Transactional(readOnly = true)
+    public PublicInvoiceResponse viewInvoice(String token) {
+        UUID invoiceId = tokenService.verifyPublicActionToken(token, "VIEW");
+
+        Invoice invoice = invoiceRepository.findById(invoiceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice not found"));
+
+        User owner = invoice.getUser();
+        Client client = invoice.getClient();
+
+        List<PublicInvoiceResponse.PublicInvoiceItemResponse> itemResponses = invoice.getItems().stream()
+                .map(item -> PublicInvoiceResponse.PublicInvoiceItemResponse.builder()
+                        .productName(item.getProductName())
+                        .productDescription(item.getProductDescription())
+                        .quantity(item.getQuantity())
+                        .unitPrice(item.getUnitPrice())
+                        .total(item.getTotal())
+                        .build())
+                .toList();
+
+        return PublicInvoiceResponse.builder()
+                .invoiceNumber(invoice.getInvoiceNumber())
+                .issueDate(invoice.getIssueDate())
+                .dueDate(invoice.getDueDate())
+                .status(invoice.getStatus())
+                .displayStatus(invoice.getStatus().name())
+                .companyName(owner.getCompanyName())
+                .companyEmail(owner.getEmail())
+                .companyPhone(owner.getPhone())
+                .companyAddress(owner.getAddress())
+                .companyLogoUrl(owner.getLogoUrl())
+                .clientName(client.getName())
+                .clientEmail(client.getEmail())
+                .clientPhone(client.getPhone())
+                .clientAddress(client.getAddress())
+                .items(itemResponses)
+                .subtotal(invoice.getSubtotal())
+                .taxRate(invoice.getTaxRate())
+                .taxAmount(invoice.getTaxAmount())
+                .total(invoice.getTotal())
+                .notes(invoice.getNotes())
+                .build();
     }
 }

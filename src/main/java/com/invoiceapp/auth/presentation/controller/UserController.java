@@ -43,6 +43,7 @@ public class UserController {
                     .name(user.getName())
                     .companyName(user.getCompanyName())
                     .isVerified(user.getIsVerified())
+                    .logoUrl(user.getLogoUrl())
                     .build());
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(401).build();

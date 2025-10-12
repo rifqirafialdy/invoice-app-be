@@ -91,4 +91,47 @@ public class InvoiceController {
 
         return ResponseEntity.ok(ApiResponse.success("Invoices retrieved successfully", invoicesPage));
     }
+    @PatchMapping("/{invoiceId}/stop-recurring")
+    public ResponseEntity<ApiResponse<InvoiceResponse>> stopRecurring(
+            @PathVariable UUID invoiceId,
+            @RequestAttribute("userId") UUID userId
+    ) {
+        InvoiceResponse response = invoiceService.stopRecurring(invoiceId, userId);
+        return ResponseEntity.ok(ApiResponse.success("Invoice recurring stopped successfully", response));
+    }
+    @PostMapping("/{invoiceId}/approve-cancellation")
+    public ResponseEntity<ApiResponse<InvoiceResponse>> approveCancellation(
+            @PathVariable UUID invoiceId,
+            @RequestAttribute("userId") UUID userId
+    ) {
+        InvoiceResponse response = invoiceService.approveCancellation(invoiceId, userId);
+        return ResponseEntity.ok(ApiResponse.success("Cancellation approved successfully", response));
+    }
+
+    @PostMapping("/{invoiceId}/reject-cancellation")
+    public ResponseEntity<ApiResponse<InvoiceResponse>> rejectCancellation(
+            @PathVariable UUID invoiceId,
+            @RequestAttribute("userId") UUID userId
+    ) {
+        InvoiceResponse response = invoiceService.rejectCancellation(invoiceId, userId);
+        return ResponseEntity.ok(ApiResponse.success("Cancellation rejected successfully", response));
+    }
+
+    @PostMapping("/{invoiceId}/confirm-payment")
+    public ResponseEntity<ApiResponse<InvoiceResponse>> confirmPayment(
+            @PathVariable UUID invoiceId,
+            @RequestAttribute("userId") UUID userId
+    ) {
+        InvoiceResponse response = invoiceService.confirmPayment(invoiceId, userId);
+        return ResponseEntity.ok(ApiResponse.success("Payment confirmed successfully", response));
+    }
+
+    @PostMapping("/{invoiceId}/reject-payment")
+    public ResponseEntity<ApiResponse<InvoiceResponse>> rejectPayment(
+            @PathVariable UUID invoiceId,
+            @RequestAttribute("userId") UUID userId
+    ) {
+        InvoiceResponse response = invoiceService.rejectPayment(invoiceId, userId);
+        return ResponseEntity.ok(ApiResponse.success("Payment rejected successfully", response));
+    }
 }

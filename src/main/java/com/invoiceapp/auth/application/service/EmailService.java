@@ -12,4 +12,5 @@ public interface EmailService {
     void sendEmailChangeVerification(String to, String token);
     void sendEmailChangeNotification(String oldEmail, String newEmail);
 
+
 }

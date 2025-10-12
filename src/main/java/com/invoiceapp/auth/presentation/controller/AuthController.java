@@ -48,7 +48,7 @@ public class AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookieUtil.createAccessTokenCookie(authResponse.getAccessToken()).toString())
                 .header(HttpHeaders.SET_COOKIE, cookieUtil.createRefreshTokenCookie(authResponse.getRefreshToken()).toString())
-                .body(ApiResponse.success("Login successful", authResponse)); // Return authResponse, not a string
+                .body(ApiResponse.success("Login successful", authResponse));
     }
 
     @PostMapping("/refresh")

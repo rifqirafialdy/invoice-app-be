@@ -96,7 +96,7 @@ public class InvoiceSchedulerService {
                 log.error("Failed to process recurring invoice {}: {}",
                         source.getInvoiceNumber(), e.getMessage(), e);
             }
-        }
+        } //
 
         log.info("Recurring generation completed. Generated: {}, Warned: {}, Stopped: {}",
                 generated, warned, stoppedUnpaid);

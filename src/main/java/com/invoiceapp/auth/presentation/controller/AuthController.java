@@ -82,9 +82,21 @@ public class AuthController {
     }
 
     @PostMapping("/verify-email")
-    public ResponseEntity<ApiResponse<Void>> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
+    public ResponseEntity<ApiResponse<Void>> verifyEmail(
+            @Valid @RequestBody VerifyEmailRequest request,
+            HttpServletRequest httpRequest) {
+
         authService.verifyEmail(request.getToken());
-        return ResponseEntity.ok(ApiResponse.success("Email verified successfully", null));
+
+        String refreshToken = requestUtil.extractRefreshTokenFromCookies(httpRequest);
+        if (refreshToken != null) {
+            authService.logout(refreshToken);
+        }
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookieUtil.clearCookie("accessToken").toString())
+                .header(HttpHeaders.SET_COOKIE, cookieUtil.clearCookie("refreshToken").toString())
+                .body(ApiResponse.success("Email verified successfully. Please log in again.", null));
     }
 
     @PostMapping("/send-verification")

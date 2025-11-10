@@ -61,7 +61,7 @@ public class SecurityConfig {
         }
 
         String origins = (originsProperty != null) ? originsProperty :
-                (originsEnv != null) ? originsEnv : "http://localhost:3000";
+                (originsEnv != null) ? originsEnv : "http://localhost:3000,https://invoice-app-fe-kohl.vercel.app";
 
         List<String> originList = Arrays.asList(origins.split(","));
         configuration.setAllowedOrigins(originList);

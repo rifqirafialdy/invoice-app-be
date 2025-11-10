@@ -29,7 +29,7 @@ public class InvoiceSchedulerService {
     private final RecurringInvoiceHelper recurringInvoiceHelper;
     private final CacheManager cacheManager;
 
-    @Scheduled(cron = "0 * * * * *")
+    @Scheduled(cron = "0 0 1 * * *")
     @Transactional
     public void generateRecurringInvoices() {
         LocalDate today = LocalDate.now();
@@ -107,7 +107,7 @@ public class InvoiceSchedulerService {
     }
 
 
-    @Scheduled(cron = "0 * * * * *")
+    @Scheduled(cron = "0 0 1 * * *")
     @Transactional
     public void updateInvoiceStatuses() {
         log.info("Starting scheduled invoice status update...");
